@@ -1,0 +1,254 @@
+---
+title: "Disaster Relief Project"
+author: "Alex Link"
+date: "10/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE, results='hide'}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 5.5,fig.align = "center",
+                      out.width = "60%",warning=FALSE,message=FALSE)
+library(tidyverse)
+library(tidyr)
+library(MASS)
+library(ISLR)
+library(GGally)
+library(ggplot2)
+library(patchwork)
+library(gapminder)
+library(broom)
+library(plotly)
+library(modelr)
+library(caret)
+library(boot)
+library(akima)
+library(gam)
+library(tidypredict)
+library(glmnet)
+library(parallel)
+```
+
+```{r cores, include=FALSE, results='hide'}
+cores <- parallel::detectCores()
+cores
+```
+```{r, include=FALSE, results='hide'}
+all_cores <- parallel::detectCores(logical = FALSE)
+all_cores
+```
+```{r, include=FALSE, results='hide'}
+library(doParallel)
+cl <- makePSOCKcluster(all_cores)
+registerDoParallel(cl)
+```
+```{r,include=FALSE, results='hide'}
+library(tune)
+grid_control <- control_grid(verbose = TRUE,pkgs = "doParallel",allow_par = TRUE)
+```
+
+## Part 1
+
+### K-Folds Out of Sampling Performance
+
+#### Data Cleaning, Shuffling & Splitting
+```{r}
+setwd("~/R/UVA Projects_R/sys6018/Project")
+haiti<-read.csv("HaitiPixels.csv", header=TRUE)
+haiti <- mutate(haiti, tarp=ifelse(Class=="Blue Tarp", "Tarp", "NoTarp"))
+haiti$Class <- factor(haiti$Class)
+haiti$tarp <- factor(haiti$tarp)
+contrasts(haiti$tarp)
+
+## Shuffle & Split Data
+set.seed(1)
+haiti <- haiti[sample(dim(haiti)[1]),]
+indxtrain <- seq(1,as.integer(.8*dim(haiti)[1]))
+training <- haiti[indxtrain,]
+fho <- haiti[-indxtrain,]
+```
+
+#### KNN
+```{r}
+set.seed(1)
+
+knnfit <- train(tarp~.-Class, data=training, method="knn", 
+              preProcess=c("center","scale"), 
+              tuneGrid=data.frame(k=seq(1,101,2)),
+              trControl = caret::trainControl("cv", number=4, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+
+ggplot(knnfit, aes(x=seq_along(Accuracy), y=Accuracy), highlight=TRUE) + 
+  geom_text(aes(label=k),vjust=1.8, size=2.5)
+
+options(yardstick.event_first = FALSE)
+ROC_curve <- predict(knnfit, type='prob') %>% 
+  yardstick::roc_curve(truth=training$tarp, estimate=Tarp) %>%
+  dplyr::mutate(one_minus_specificity = 1-specificity)
+
+ROC_curve_plot <- ROC_curve %>%
+  ggplot(aes(x=one_minus_specificity, y=sensitivity)) + 
+  geom_line() + geom_point(aes(text=sprintf("Threshold %s", .threshold))) + 
+  geom_abline(slope=1, intercept=0, linetype='dashed', color='red') +
+  xlab("one_minus_specificity\n(false positive rate)") +
+  ggtitle('ROC curve for KNN')
+
+ggplotly(ROC_curve_plot)
+
+auc <- predict(knnfit, type='prob') %>% 
+  yardstick::roc_auc(truth=training$tarp, Tarp)
+paste('KNN (k=', knnfit$bestTune[,1],') AUC estimate is ', auc$.estimate, sep="")
+
+THRESHOLD <- 0.0625
+threshpred <- factor(ifelse(predict(knnfit, newdata=fho, 
+                                    type='prob')$Tarp>THRESHOLD, 'Tarp', 'NoTarp'))
+cm <- confusionMatrix(data=threshpred, reference=fho$tarp, positive='Tarp')
+cm
+```
+
+##### b.) Threshold Rationale
+
+The threshsold of 0.0625 was chosen based off the ROC Curve, as well as my preference for a high sensitivity. While a threshold of 0.0625 does provide a high accuracy, there are other threshold values that provide higher overall accuracy. However, my main goal for this problem would be locating and providing food and water to as many displaced people as possible, irregardless of the resources at my disposal; I would want to ensure as few displaced people are overlooked as possible. This corresponds to a higher sensitivity, and thus lower false negative rate (predicted No Tarp, but there actually is a Blue Tarp/Displaced Person there). Based on the ROC Curve formulated using the training data, a threshold of 0.0625 has a perfect sensitivity of 1 and a specificity very close to 1 as well (indicating a high prediction accuracy for Non-Blue Tarp images as well), so it was chosen as my KNN threshold. Applying this threshold to the final hold-out set resulted in an accuracy of over 99%, but most importantly, almost accomplished my goal of providing aid to all displaced persons. Unfortunately 1 person was misclassified (assuming all blue tarps correspond to displaced people) for this specific hold-out set, but the sensitivity and false negative rate were still very good, indicating many people would be located and (hopefully) be provided with aid (especially compared to Puerto Rico-Hurricane Maria standards).
+
+#### LDA
+```{r}
+set.seed(1)
+
+ldafit <- train(tarp~.-Class, data=training, method="lda", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+
+options(yardstick.event_first = FALSE)
+ROC_curve2 <- predict(ldafit, type='prob') %>% 
+  yardstick::roc_curve(truth=training$tarp, estimate=Tarp) %>%
+  dplyr::mutate(one_minus_specificity = 1-specificity)
+
+ROC_curve_plot2 <- ROC_curve2 %>%
+  ggplot(aes(x=one_minus_specificity, y=sensitivity)) + 
+  geom_line() + geom_point(aes(text=sprintf("Threshold %s", .threshold))) + 
+  geom_abline(slope=1, intercept=0, linetype='dashed', color='red') +
+  xlab("one_minus_specificity\n(false positive rate)") +
+  ggtitle('ROC curve for LDA')
+
+ggplotly(ROC_curve_plot2)
+
+auc2 <- predict(ldafit, type='prob') %>% 
+  yardstick::roc_auc(truth=training$tarp, Tarp)
+paste('LDA AUC estimate is', auc2$.estimate)
+
+THRESHOLD2 <- 0.0001
+threshpred2 <- factor(ifelse(predict(ldafit, newdata=fho, 
+                                    type='prob')$Tarp>THRESHOLD2, 'Tarp', 'NoTarp'))
+cm2 <- confusionMatrix(data=threshpred2, reference=fho$tarp, positive='Tarp')
+cm2
+```
+
+##### b.) Threshold Rationale
+
+As stated above, my main goal for this problem is locating and providing food and water to as many displaced people as possible, so keeping this in mind, my threshold selection again will be quite low. Based off this ROC Curve, it appears I reach a 99% sensitivity on the training data with a threshold of 0.0001. Unfortunately, this comes at a much greater cost of specificity (higher false positive rate) compared to KNN, but again, I am not as concerned with misclassifying a non-blue tarp as a blue tarp. Worst thing that happens is aid is sent, but there is not actually a displaced person in that location (not accounting for finite resources & manpower that could be allocated elsewhere). Applying this threshold to the final hold-out set resulted in a very high sensitivity again (over 99%), but not as good as KNN. 1 more additional displaced person was overlooked, and all other relevant metrics underperformed compared to KNN.
+
+#### QDA
+```{r}
+set.seed(1)
+
+qdafit <- train(tarp~.-Class, data=training, method="qda", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+
+options(yardstick.event_first = FALSE)
+ROC_curve3 <- predict(qdafit, type='prob') %>% 
+  yardstick::roc_curve(truth=training$tarp, estimate=Tarp) %>%
+  dplyr::mutate(one_minus_specificity = 1-specificity)
+
+ROC_curve_plot3 <- ROC_curve3 %>%
+  ggplot(aes(x=one_minus_specificity, y=sensitivity)) + 
+  geom_line() + geom_point(aes(text=sprintf("Threshold %s", .threshold))) + 
+  geom_abline(slope=1, intercept=0, linetype='dashed', color='red') +
+  xlab("one_minus_specificity\n(false positive rate)") +
+  ggtitle('ROC curve for QDA')
+
+ggplotly(ROC_curve_plot3)
+
+auc3 <- predict(qdafit, type='prob') %>% 
+  yardstick::roc_auc(truth=training$tarp, Tarp)
+paste('QDA AUC estimate is', auc3$.estimate)
+
+THRESHOLD3 <- 0.013
+threshpred3 <- factor(ifelse(predict(qdafit, newdata=fho, 
+                                    type='prob')$Tarp>THRESHOLD3, 'Tarp', 'NoTarp'))
+cm3 <- confusionMatrix(data=threshpred3, reference=fho$tarp, positive='Tarp')
+cm3
+```
+
+##### b.) Threshold Rationale
+
+Sticking with the theme of desiring a higher sensitivity (at the cost of specificity), the ROC Curve for this method gets very close to a sensitivity of 1 (0.99815 to be exact), without giving up too much specificity, on the training data with a threshold of 0.013. Applying this threshold to the final hold-out set results in a sensitivty on par with the KNN method. However, it underperforms the KNN method in nearly every other metric, and in fact misclassifies more than 3 times as many non-blue tarp images as blue tarp.
+
+#### Logistic Regression
+```{r}
+set.seed(1)
+
+logfit <- train(tarp~.-Class, data=training, method="glm", family="binomial", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+
+options(yardstick.event_first = FALSE)
+ROC_curve4 <- predict(logfit, type='prob') %>% 
+  yardstick::roc_curve(truth=training$tarp, estimate=Tarp) %>%
+  dplyr::mutate(one_minus_specificity = 1-specificity)
+
+ROC_curve_plot4 <- ROC_curve4 %>%
+  ggplot(aes(x=one_minus_specificity, y=sensitivity)) + 
+  geom_line() + geom_point(aes(text=sprintf("Threshold %s", .threshold))) + 
+  geom_abline(slope=1, intercept=0, linetype='dashed', color='red') +
+  xlab("one_minus_specificity\n(false positive rate)") +
+  ggtitle('ROC curve for Logistic Regression')
+
+ggplotly(ROC_curve_plot4)
+
+auc4 <- predict(logfit, type='prob') %>% 
+  yardstick::roc_auc(truth=training$tarp, Tarp)
+paste('Logistic Regression AUC estimate is', auc4$.estimate)
+
+THRESHOLD4 <- 0.003
+threshpred4 <- factor(ifelse(predict(logfit, newdata=fho, 
+                                    type='prob')$Tarp>THRESHOLD4, 'Tarp', 'NoTarp'))
+cm4 <- confusionMatrix(data=threshpred4, reference=fho$tarp, positive='Tarp')
+cm4
+```
+
+##### b.) Threshold Rationale
+
+Again examining the ROC Curve on the training data, it appears we can get very close to a sensitivity of 1 (0.99815 again) without sacrificing too much specificity at a threshold of 0.003. Applying this threshold to the final hold-out set results in a sensitivity equal to the KNN and QDA methods, again overlooking one displaced person, but it sacrifices more specificity than the other 2 aforementioned methods, leading to an overall accuracy that only barely eclipses 90%. Consequently, it makes nearly 10 times as many false positive predictions as the KNN method.
+
+#### Final Values Table
+
+|Method|KNN (*k*=`r knnfit$bestTune[,1]`)|LDA|QDA|Logistic Regression|
+|------|-----------|---|---|-------------------|
+|Accuracy|`r cm$overall[1]`|`r cm2$overall[1]`|`r cm3$overall[1]`|`r cm4$overall[1]`|
+|AUC|`r auc$.estimate`|`r auc2$.estimate`|`r auc3$.estimate`|`r auc4$.estimate`|
+|ROC|See Above|See Above|See Above|See Above|
+|Threshold|`r THRESHOLD`|`r THRESHOLD2`|`r THRESHOLD3`|`r THRESHOLD4`|
+|Sensitivity=Recall=Power|`r cm$byClass[1]`|`r cm2$byClass[1]`|`r cm3$byClass[1]`|`r cm4$byClass[1]`|
+|Specificity=1-FPR|`r cm$byClass[2]`|`r cm2$byClass[2]`|`r cm3$byClass[2]`|`r cm4$byClass[2]`|
+|FDR|`r 1-cm$byClass[3]`|`r 1-cm2$byClass[3]`|`r 1-cm3$byClass[3]`|`r 1-cm4$byClass[3]`|
+|Precision=PPV|`r cm$byClass[3]`|`r cm2$byClass[3]`|`r cm3$byClass[3]`|`r cm4$byClass[3]`|
+
+### Conclusions
+
+#### 1. Determination of Best Algorithm
+After examining the results of all 4 methods, it appears the KNN method works best. Although it took the longest time in terms of training/fitting, its predictive power was superior or on par in every metric compared with all the other methods. Although by individual standards all of the methods returned very high AUC's, KNN returned the highest, with a value of `r auc$.estimate`, which is incredibly close to a near perfect value of 1. Also, in terms of my preference for setting a threshold that would return a very high sensitivty, without sacrificing too much specificity, KNN also performed best. After setting the threshold for each method to meet this criteria, KNN, QDA and Logisitic Regression all returned the same sensitivity on the final hold-out set, but KNN did so sacrificing the least amount of specificity, which in turn led to it having the highest overall accuracy. That is the primary reason I would select it for use in solving this problem. Since we definitely do have a finite amount of manpower to help provide aid to all the displaced people, we want to ensure we correctly identify as many displaced people as possible while simultaenously limiting our number of false positives. This is because aid needs to be provided in a timely manner, and we most likely can't send aid to every location we've identified as a blue tarp at the same time. By limiting our false positive rate and maintaining a high sensitivity, resources can be properly allocated to provide food and water to as many displaced people as possible without sending it to too many locations that don't actually contain displaced individuals, which would sacrifice much needed time that could be used to provide aid to actually displaced people. The KNN method best accomplishes this goal.
+
+#### 2. Multiple Adequately Performing Methods
+I would say all of the models performed adequately, as they all returned AUC's of over 0.98, however, there were 2 clear best performing methods in KNN and QDA, which makes sense as they are the more flexible approaches out of the 4 methods performed, and although more flexible approaches have higher variance, this high variance is offset/reduced by the incredibly large sample size of this data set, thus improving the prediction accuracy of these methods. Both methods had accuracy, sensitivity and specificity over 0.95 (with KNN slightly edging out QDA in accuracy & specificity), however, KNN excelled when it came to positive predictive value & false discovery rate, as it limited the number of false positive predictions compared to QDA (QDA predicted over 3 times as many blue tarps that were actually non-tarps). For this reason, KNN was selected as the best overall method.
+
+#### 3. Effectiveness/Additional Recommendations
+Overall, I would say the work conducted here would be fairly effective as a complimentary tool in saving human life. By processing thousands of images much quicker than the human eye and providing probable locations of blue tarps (and thus displaced persons), aid could be provided in a much more timely manner. However, there were still quite a few images misclassified as blue tarp, when in fact there was no tarp, which could waste quite a bit of resources sending materials & manpower to locations that don't actually contain displaced persons, sacrificing time in the process. As such, I would recommend using this work as a complimentary tool to identify probable locations of blue tarps and then having actual humans review those images to decide if these locations do indeed contain blue tarps/displaced individuals. This work would signficiantly limit the amount of images (by thousands) that have to be reviewed by relief workers, who could then review them with their own eye to determine if there is indeed displaced people in that location that need aid, thus saving the aforementioned time & resources that could be properly allocated elsewhere. My main recommendation to improve these results (aside from more data or higher computing power to test more *k* values in KNN) would be to employ an ensemble method to this work by combining the predictions of all these models at once. By combining these results using a per class voting scheme, we could hopefully further improve our overall prediction accuracy (compared to that of one single method) and successfully provide aid to more people in a more timely manner.
+
+
+```{r, include=FALSE, results='hide'}
+parallel::stopCluster(cl)
+```
+
+
+
+
