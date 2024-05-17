@@ -1,0 +1,2 @@
+# disasterRelief
+ Testing of different classification methods in relation to the 2010 Haitian earthquake relief effort. This project involved training various models on imagery data collected during the relief efforts to try and correctly locate displaced persons, who were known to be using blue tarps as temporary shelters. The main purpose of this project was to compare performance metrics between the various classification algorithms, such as accuracy (using cross-validation and hold out data) and runtime.
