@@ -8,9 +8,8 @@ Alex Link
     Sampling Performance</strong></a>
     -   <a
         href="#underlinedataspace-readingspace-cleaningspace-andspace-shuffling"
-        id="toc-underlinedataspace-readingspace-cleaningspace-andspace-shuffling"><span
-        class="math inline">$\underline{Data\space Reading,\space Cleaning\space
-        and\space Shuffling}$</span></a>
+        id="toc-underlinedataspace-readingspace-cleaningspace-andspace-shuffling">Data Reading, Cleaning
+        and Shuffling</a>
     -   <a href="#underlineknn" id="toc-underlineknn"><span
         class="math inline">$\underline{KNN}$</span></a>
         -   <a href="#knn-roc-curve" id="toc-knn-roc-curve">KNN ROC Curve</a>
