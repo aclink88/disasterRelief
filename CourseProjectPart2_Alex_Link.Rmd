@@ -1,0 +1,1029 @@
+---
+title: "Disaster Relief Project"
+author: "Alex Link"
+date: "10/8/2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 6
+    toc_float: true
+    toc_collapsed: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE, results='hide'}
+knitr::opts_chunk$set(echo = TRUE,fig.width = 7,fig.align = "center",
+                      out.width = "60%",warning=FALSE,message=FALSE)
+library(tidyverse)
+library(tidyr)
+library(MASS)
+library(ISLR)
+library(GGally)
+library(ggplot2)
+library(patchwork)
+library(gapminder)
+library(broom)
+library(plotly)
+library(modelr)
+library(caret)
+library(boot)
+library(akima)
+library(gam)
+library(tidypredict)
+library(glmnet)
+library(parallel)
+library(purrr)
+library(randomForest)
+library(e1071)
+library(pROC)
+library(ROCR)
+library(gridExtra)
+library(grid)
+library(janitor)
+library(ggpubr)
+```
+
+```{r cores, include=FALSE, results='hide'}
+cores <- parallel::detectCores()
+cores
+```
+```{r, include=FALSE, results='hide'}
+all_cores <- parallel::detectCores(logical = FALSE)
+all_cores
+```
+```{r, include=FALSE, results='hide'}
+library(doParallel)
+## cores = logical cores (4)
+## all_cores = physical cores (2)
+cl <- makePSOCKcluster(cores)
+registerDoParallel(cl)
+getDoParWorkers()
+```
+```{r,include=FALSE, results='hide'}
+library(tune)
+grid_control <- control_grid(verbose = TRUE,pkgs = "doParallel",allow_par = TRUE)
+```
+
+###### Function Coding
+```{r}
+## ROC Curves Plotting
+Curves = function(model, modelName){
+  options(yardstick.event_first = FALSE)
+  ROC_curves <- model$pred %>%
+    dplyr::group_split(Resample) %>% 
+    purrr::map(~ yardstick::roc_curve(.x, truth=obs, Tarp)) %>%
+    purrr::map(~ dplyr::mutate(.x, one_minus_specificity = 1-specificity))
+  
+  plotframe = data.frame()
+  for (i in seq(1:length(ROC_curves))){
+    df <- as.data.frame(ROC_curves[i])
+    df <- mutate(df, Fold=as.factor(i))
+    plotframe <- rbind(plotframe, df)
+  }
+  
+  ROC_curve <- model$pred %>% 
+    yardstick::roc_curve(truth=obs, estimate=Tarp) %>%
+    dplyr::mutate(one_minus_specificity = 1-specificity)
+  ROC_curve <- as.data.frame(ROC_curve)
+  ROC_curve <- mutate(ROC_curve, Fold="Mean")
+  
+  ROC_curve_plot <- plotframe %>% 
+    ggplot(aes(one_minus_specificity, sensitivity, label=.threshold, color=Fold)) + 
+    geom_line(size=0.4)+geom_line(data=ROC_curve,color='black',alpha=0.5,size=0.7) +
+    geom_abline(slope=1, intercept=0, linetype='dashed', color='red') + 
+    scale_color_discrete(guide=guide_legend(title="Fold")) + 
+    xlab("one_minus_specificity\n(false positive rate)") +
+    ggtitle(paste('ROC Curves for', modelName, '(Mean in Black)')) + 
+    theme(plot.title = element_text(size=10))
+  
+  ggplotly(ROC_curve_plot)
+}
+
+## AUC Estimates for ROC with mean and standard deviation of results
+AUC <- function(model){
+  AUCs <- model$pred %>%
+    dplyr::group_split(Resample) %>% 
+    purrr::map(~ yardstick::roc_auc(.x, truth=obs, Tarp))
+  
+  aucframe = data.frame()
+  for (i in seq(1:length(AUCs))){
+    df <- as.data.frame(AUCs[i])
+    df <- mutate(df, Fold=as.factor(i))
+    aucframe <- rbind(aucframe, df)
+  }
+  aucframe = subset(aucframe, select=-c(.metric,.estimator))
+  names(aucframe)[names(aucframe)=='.estimate'] <- "AUC_Estimate"
+  aucframe <- aucframe[, c("Fold", "AUC_Estimate")]
+  avg <- data.frame('Fold'='Mean', 'AUC_Estimate'=mean(aucframe$AUC_Estimate))
+  sd <- data.frame('Fold'='Standard Dev.', 'AUC_Estimate'=sd(aucframe$AUC_Estimate))
+  aucframe <- rbind(aucframe,avg,sd)
+  return(aucframe)
+}
+
+## Precision Recall Curves Plotting. My take using yardstick; will use in report
+PRC = function(model, modelName){
+  options(yardstick.event_first = FALSE)
+  PR_curves <- model$pred %>%
+    plotly::group_by(Resample) %>% 
+    yardstick::pr_curve(obs, Tarp)
+  
+  PRcurve <- model$pred %>% yardstick::pr_curve(obs, Tarp)
+  
+  PR_curve_plot <- PR_curves %>% 
+    ggplot(aes(recall, precision, label=.threshold, color=Resample)) + 
+    geom_line(size=0.4) + geom_line(data=PRcurve,color='black',alpha=0.8,size=0.7) + 
+    ggtitle(paste('Precision Recall Curves for', modelName, '(Mean in Black)')) + 
+    theme(plot.title = element_text(size=10))
+  
+  ggplotly(PR_curve_plot)
+}
+
+## Precision Recall Curves Plotting based on code in Prof Schwartz's Mod_9_tidylab
+## Included just to play around with & learn more libraries, but prefer to use my own
+## PR curve plotting function in report
+PRC2 = function(model, modelName){
+  precision_recall <- function(pred, truth, ...){
+    predob = ROCR::prediction(pred, truth, label.ordering=c('NoTarp','Tarp'))
+    perf = ROCR::performance(predob, measure="prec", x.measure="rec")
+    perf
+  }
+  as_tibble(model$pred) %>%
+    group_split(Resample) %>% map( ~ .x[,'obs']$obs) -> mod_obs
+  mod_obs
+  
+  as_tibble(model$pred) %>%
+    group_split(Resample) %>% map( ~ .x[,'Tarp']$Tarp) -> mod_preds
+  mod_preds
+  
+  plot(precision_recall(mod_preds,mod_obs), colorize=TRUE, 
+       main=paste('Precision Recall Curves for', modelName,'(Mean in Black)'))
+  plot(precision_recall(mod_preds,mod_obs), colorize=FALSE, 
+       avg='threshold', spread.estimate='stderror', add=TRUE, lwd=2.5)
+}
+
+## AUC Est. with mean and standard deviation of results for Precision Recall Curves
+prAUC <- function(model){
+  AUCs <- model$pred %>%
+    dplyr::group_split(Resample) %>% 
+    purrr::map(~ yardstick::pr_auc(.x, truth=obs, Tarp))
+  
+  aucframe = data.frame()
+  for (i in seq(1:length(AUCs))){
+    df <- as.data.frame(AUCs[i])
+    df <- mutate(df, Fold=as.factor(i))
+    aucframe <- rbind(aucframe, df)
+  }
+  aucframe = subset(aucframe, select=-c(.metric,.estimator))
+  names(aucframe)[names(aucframe)=='.estimate'] <- "AUC_Estimate"
+  aucframe <- aucframe[, c("Fold", "AUC_Estimate")]
+  avg <- data.frame('Fold'='Mean', 'AUC_Estimate'=mean(aucframe$AUC_Estimate))
+  sd <- data.frame('Fold'='Standard Dev.', 'AUC_Estimate'=sd(aucframe$AUC_Estimate))
+  aucframe <- rbind(aucframe,avg,sd)
+  return(aucframe)
+}
+
+## Create CM's for each fold (modified from Mod_7_Live.Rmd)
+matrices = function(model, thresh){
+  model$pred %>%
+    dplyr::mutate(pred2 = ifelse(Tarp > thresh, 'Tarp', 'NoTarp')) %>%
+    dplyr::mutate(pred2 = factor(pred2, levels = c('NoTarp', 'Tarp'))) %>%
+    dplyr::group_split(Resample) %>%
+    purrr::map( ~ caret::confusionMatrix(data=.x$pred2, reference=.x$obs, 
+                                         positive='Tarp'))
+}
+
+## Create single CM (i.e. Point estimates)
+cm = function(model, thresh){
+  threshpred <- factor(ifelse(model$pred$Tarp>thresh, 'Tarp', 'NoTarp'))
+  confusionMatrix(data=threshpred, reference=model$pred$obs,positive='Tarp')
+}
+
+## Same as above function but only returns table. Not used in project
+## Only created to get more exposure with purrr & Reduce function
+cm2 = function(model, thresh){
+  matrices(model, thresh) %>% 
+    purrr::map( ~ .x$table) %>% 
+  (function(x) Reduce('+',x) )
+}
+
+## Get a metric from a specific fold (taken from Mod_7_Live.Rmd)
+cmetric <- function(caret_CM_object, metric){
+  caret_CM_object %>% broom::tidy() %>% 
+    dplyr::filter(term==metric) %>%
+    dplyr::select(estimate) %>% pull()
+}
+
+## Get a statistical measure of a metric between all the CM folds for a model
+## (modified from Mod_7_Live.Rmd)
+cmstat <- function(caret_CM_objects, metric, stat){
+  sol <- caret_CM_objects %>% 
+    map( ~ cmetric(.x, metric)) %>%
+    unlist() %>% stat
+  stat2 <- as.character(substitute(stat))
+  print(paste(str_to_title(stat2),'of', metric, 'of all folds is', sol))
+}
+
+## Create ConfusionMatrix for each fold, pull metrics & their estimates from each #fold & convert to dataframe format, then add the mean & SD of each metric to frame
+cmetable <- function(model, thresh){
+  CMs <- matrices(model, thresh)
+  cmframe = data.frame()
+  for (i in seq(1:length(CMs))){
+    df <- CMs[[i]] %>% broom::tidy() %>% as.data.frame()
+    df <- subset(df, select=c(term,estimate))
+    df <- t(df)
+    rownames(df) <- NULL
+    df <- df %>% janitor::row_to_names(row_number=1)
+    cmframe <- rbind(cmframe, df)
+  }
+  cmframe[] <- lapply(cmframe, as.numeric)
+  cmframe <- mutate(cmframe, FDR=1-pos_pred_value)
+  cmframe <- rbind(cmframe,colMeans(cmframe))
+  cmframe <- rbind(cmframe,apply(cmframe[1:length(CMs),],2,sd))
+  cmframe <- cbind(Fold=c(as.factor(seq(1:length(CMs))),"Mean","SD"),cmframe)
+  return(cmframe)
+}
+
+## Get percentage average cell counts across all CM folds w/ custom threshold
+## Modified from Mod_7_Live.Rmd
+percm <- function(model, thresh){
+  CMs <- matrices(model, thresh)
+  CMs %>% purrr::map( ~ .x$table) %>% purrr::map( ~ .x/sum(.x)) %>%
+    (function(x) Reduce('+',x) )/length(CMs)
+}
+
+## Get SD of percentage average cell counts across all CM folds w/ custom threshold
+## Modified from Mod_7_Live.Rmd
+psdcm <- function(model, thresh){
+  CMs <- matrices(model, thresh)
+  CMs %>% purrr::map( ~ .x$table) %>% purrr::map( ~ .x/sum(.x)) %>% 
+    purrr::map( ~ (.x - percm(model,thresh))) %>% purrr::map( ~ .x^2) %>% 
+    (function(x) Reduce('+',x)/length(CMs) ) %>% sqrt()
+}
+
+## Get average cell counts across all CM folds w/ custom threshold
+avgcm <- function(model, thresh){
+  CMs <- matrices(model, thresh)
+  CMs %>% purrr::map( ~ .x$table) %>%
+    (function(x) Reduce('+',x) )/length(CMs)
+}
+
+## Get SD of cell counts across all CM folds w/ custom threshold
+sdcm <- function(model, thresh){
+  CMs <- matrices(model, thresh)
+  CMs %>% purrr::map( ~ .x$table) %>% 
+    purrr::map( ~ (.x - avgcm(model,thresh))) %>% purrr::map( ~ .x^2) %>% 
+    (function(x) Reduce('+',x)/length(CMs) ) %>% sqrt()
+}
+
+## Confusion Matrix Visualization Function
+cmplot <- function(model, thresh){
+  frequency <- data.frame(cm(model,thresh)$table)
+  percent <- data.frame("Perc"=percm(model,thresh))[,-c(1,2)]
+  st_dev <- data.frame("SD"=sdcm(model,thresh))[,-c(1,2)]
+  
+  alldata <- cbind(frequency,percent,st_dev)
+  
+  alldata %>% 
+    mutate(Prediction = factor(Prediction, levels = c("Tarp", "NoTarp"))) %>% 
+    group_by(Reference) %>% 
+    ggplot(aes(Reference, Prediction, fill=Freq)) + geom_tile() + 
+    geom_text(aes(label=str_c(Freq,"\n",round(percent*100,4),"%\nStd. Dev=", 
+                              round(st_dev,5))),size=4.8, color='white') + 
+    scale_fill_gradient(low="blue",high="#006600") +
+    scale_x_discrete(position="top") + geom_tile(color="black", alpha=0)
+}
+
+## Function to create ROC curve for Holdout Data
+hoROC = function(modelpreds, modelName){
+  options(yardstick.event_first = FALSE)
+  ROC_curve <- yardstick::roc_curve(modelpreds, truth=holdout$tarp, estimate=Tarp) %>% 
+    dplyr::mutate(one_minus_specificity = 1-specificity)
+  
+  ROC_curve_plot <- ROC_curve %>% 
+    ggplot(aes(one_minus_specificity, sensitivity, label=.threshold)) + 
+    geom_line(size=0.4) +
+    geom_abline(slope=1, intercept=0, linetype='dashed', color='red') + 
+    xlab("one_minus_specificity\n(false positive rate)") +
+    ggtitle(paste('Holdout ROC Curve for', modelName)) + 
+    theme(plot.title = element_text(size=10))
+  
+  ggplotly(ROC_curve_plot)
+}
+
+## Function to get AUC of ROC curve for Holdout Data
+hoAUC <- function(modelpreds){
+  yardstick::roc_auc(modelpreds, truth=holdout$tarp, Tarp) %>% 
+    dplyr::select(.estimate) %>% pull()
+}
+
+## Function to create Precision Recall curve for Holdout Data
+hoPR = function(modelpreds, modelName){
+  options(yardstick.event_first = FALSE)
+  PRcurve <- yardstick::pr_curve(modelpreds, truth=holdout$tarp, estimate=Tarp)
+  
+  PR_curve_plot <- PRcurve %>% 
+    ggplot(aes(recall, precision, label=.threshold)) + geom_line(size=0.4) + 
+    ggtitle(paste('Holdout Precision Recall Curve for', modelName)) + 
+    theme(plot.title = element_text(size=10))
+  
+  ggplotly(PR_curve_plot)
+}
+
+## Function to get AUC of Precision Recall curve for Holdout Data
+hoprAUC <- function(modelpreds){
+  yardstick::pr_auc(modelpreds, truth=holdout$tarp, Tarp) %>% 
+    dplyr::select(.estimate) %>% pull()
+}
+
+## Function to get Confusion matrix on Holdout Data
+hocm = function(modelpreds, thresh){
+  threshpred <- factor(ifelse(modelpreds$Tarp>thresh, 'Tarp', 'NoTarp'))
+  confusionMatrix(data=threshpred, reference=holdout$tarp, positive='Tarp')
+}
+
+## Holdout Confusion Matrix Visualization
+hocmplot <- function(modelpreds, thresh){
+  cmtable <- data.frame(hocm(modelpreds,thresh)$table)
+  cm <- hocm(modelpreds,thresh)
+  
+  cg <- cmtable %>% 
+    mutate(Prediction = factor(Prediction, levels = c("Tarp", "NoTarp"))) %>% 
+    group_by(Reference) %>% 
+    ggplot(aes(Reference, Prediction, fill=Freq)) + geom_tile() + 
+    geom_text(aes(label=str_c(Freq)), size=5, color='white') + 
+    scale_fill_gradient(low="blue",high="#006600") +
+    scale_x_discrete(position="top") + geom_tile(color="black", alpha=0)
+  
+  cmdat <- data.frame()
+  cmdat <- rbind(cmdat,subset(cm$overall %>% as.data.frame() %>% t(), 
+                              select=c('Accuracy')))
+  cmdat <- cbind(cmdat, subset(cm$byClass %>% as.data.frame() %>% t(), 
+                               select=c('Sensitivity','Specificity','Precision')))
+  cmdat <- mutate(cmdat, FDR=1-Precision)
+  gg <- ggtexttable(round(cmdat,7), rows=NULL)
+  cg/gg
+}
+```
+
+### **K-Folds Out of Sampling Performance**
+
+#### $\underline{Data\space Reading,\space Cleaning\space and\space Shuffling}$
+```{r, results='hide'}
+setwd("~/R/UVA Projects_R/sys6018/Project")
+haiti<-read.csv("HaitiPixels.csv", header=TRUE)
+haiti <- mutate(haiti, tarp=ifelse(Class=="Blue Tarp", "Tarp", "NoTarp"))
+haiti$Class <- factor(haiti$Class)
+haiti$tarp <- factor(haiti$tarp)
+contrasts(haiti$tarp)
+
+## Shuffle Data
+set.seed(1)
+training <- haiti[sample(dim(haiti)[1]),]
+## For Part 2, will train using all data & test using Out-of-Sample Folds
+# haiti <- haiti[sample(dim(haiti)[1]),]
+# indxtrain <- seq(1,as.integer(.8*dim(haiti)[1]))
+# training <- haiti[indxtrain,]
+# fho <- haiti[-indxtrain,]
+```
+
+#### $\underline{KNN}$
+```{r}
+set.seed(1)
+
+## Below was used to tune & identify then plot optimal K
+
+# knnfit <- train(tarp~Red+Green+Blue, data=training, method="knn", 
+#               preProcess=c("center","scale"), 
+#               tuneGrid=data.frame(k=seq(1,51,2)),
+#               trControl = caret::trainControl("cv", number=10, 
+#                         returnResamp='all',savePredictions='final', classProbs=TRUE))
+# 
+# ggplot(knnfit, aes(x=seq_along(Accuracy), y=Accuracy), highlight=TRUE) + 
+#   geom_text(aes(label=k),vjust=1.8, size=2.5)
+
+## Saved plot as image & load back into markdown to save time/computing power on final knit
+
+## Trained full data on optimal K to save time/computing power in final knit
+
+knnfit <- train(tarp~Red+Green+Blue, data=training, method="knn", 
+              preProcess=c("center","scale"), 
+              tuneGrid=data.frame(k=3),
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+```
+
+![](/Users/Alex/Documents/R/UVA Projects_R/sys6018/Project/knnTuning.png)
+
+##### KNN ROC Curve
+```{r}
+set.seed(1)
+
+Curves(knnfit, paste0('KNN (k=', knnfit$bestTune[,1],')'))
+knnaucs <- AUC(knnfit)
+grid.newpage()
+grid.table(knnaucs, rows=NULL)
+knnauc <- knnaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### KNN Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(knnfit, paste0('KNN (k=', knnfit$bestTune[,1],')'))
+knnPRaucs <- prAUC(knnfit)
+grid.newpage()
+grid.table(knnPRaucs, rows=NULL)
+knnPRauc<-knnPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### KNN Confusion Matrix
+```{r}
+set.seed(1)
+
+knnThresh <- 0.062
+
+cmplot(knnfit,knnThresh)
+
+knncmetrics <- cmetable(knnfit, knnThresh)
+grid.newpage()
+grid.table(subset(knncmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+knnacc<-knncmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+knnsens<-knncmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+knnspec<-knncmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+knnfdr<-knncmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+knnppv<-knncmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+
+##### KNN Threshold Rationale
+
+The threshsold of `r knnThresh` was chosen based off the mean Precision Recall Curve, as well as my preference for a high sensitivity/recall. While a threshold of `r knnThresh` does provide a high accuracy, there are other threshold values that provide higher overall accuracy. However, my main goal for this problem would be locating and providing food and water to as many displaced people as possible, irregardless of the resources at my disposal; I would want to ensure as few displaced people are overlooked as possible. This corresponds to a higher sensitivity/recall, and thus lower false negative rate (predicted No Tarp, but there actually is a Blue Tarp/Displaced Person there). Based on the mean Precision Recall Curve formulated using the out-of-folds sample data, a threshold of `r knnThresh` has a near perfect recall of 1 (over 0.99), which comes at a cost of precision, which drops to approximately 0.80. However, given my previously stated rationale, I would prefer to "overpredict" that there is a Blue Tarp/Displaced person, to ensure a lower false negative rate & make sure as few displaced people are overlooked as possible. Although this would lead to more predicitions of Blue Tarp, which would incur more time and resources to send help to those locations (even if there is not a displaced person located there), I believe these possible sunk costs are outweighed by the lower false negative rate, as it is more human lives saved; call me a hippy, but I don't believe in placing a value on human life, even though some government agency seem to do so (https://www.transportation.gov/sites/dot.gov/files/docs/2016%20Revised%20Value%20of%20a%20Statistical%20Life%20Guidance.pdf). Applying this threshold to the out-of-folds sample data resulted in an accuracy of over 99%, but most importantly, almost accomplished my goal of providing aid to all displaced persons. Unfortunately 15 people (less than 1% of all displaced people) were misclassified (assuming all blue tarps correspond to displaced people) for this specific data set, but the sensitivity/recall was still very good, indicating many people would be located and (hopefully) be provided with aid (especially compared to Puerto Rico-Hurricane Maria standards).
+
+#### $\underline{LDA}$
+```{r}
+set.seed(1)
+
+ldafit <- train(tarp~Red+Green+Blue, data=training, method="lda", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+```
+
+##### LDA ROC Curve
+```{r}
+set.seed(1)
+
+Curves(ldafit, 'LDA')
+ldaaucs <- AUC(ldafit)
+grid.newpage()
+grid.table(ldaaucs, rows=NULL)
+ldaauc <- ldaaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### LDA Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(ldafit, 'LDA')
+ldaPRaucs <- prAUC(ldafit)
+grid.newpage()
+grid.table(ldaPRaucs, rows=NULL)
+ldaPRauc<-ldaPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+
+##### LDA Confusion Matrix
+```{r}
+set.seed(1)
+
+ldaThresh <- 0.000188
+
+cmplot(ldafit,ldaThresh)
+
+ldacmetrics <- cmetable(ldafit, ldaThresh)
+grid.newpage()
+grid.table(subset(ldacmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+ldaacc<-ldacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+ldasens<-ldacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+ldaspec<-ldacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+ldafdr<-ldacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+ldappv<-ldacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+##### LDA Threshold Rationale
+
+As stated above, my main goal for this problem is locating and providing food and water to as many displaced people as possible, so keeping this in mind, my threshold selection again will be quite low. However, when compared to KNN, the Precision Recall AUC estimates for LDA are much lower, and vary much more across folds (standard deviation of AUC estimates across folds is approximately 6 times larger for LDA than KNN). Based off the mean Precision Recall Curve, it appears I reach a 0.99 sensitvity on the out-of-folds sample data with a threshold of `r ldaThresh`. Unfortunately, this comes at a MUCH greater cost of precision compared to KNN, as it falls to nearly 0.20, and although I previously stated I am not concerned with misclassifying a non-blue tarp as a blue tarp, dropping the threshold too low could end up making the model almost useless (predicts Blue Tarp every time) or in this case, it would be hard for me to ignore my previous assertion of not being concerned with time and resources, as LDA predicts Blue Tarp approximately 4 times as much as KNN (producing over 16 times as many false negatives!!), and even manages to have a higher false negative rate, overlooking 5 more displaced persons compared to KNN. All other relevant metrics also underperformed compared to KNN.
+
+#### $\underline{QDA}$
+```{r}
+set.seed(1)
+
+qdafit <- train(tarp~Red+Green+Blue, data=training, method="qda", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+```
+
+##### QDA ROC Curve
+```{r}
+set.seed(1)
+
+Curves(qdafit, 'QDA')
+qdaaucs <- AUC(qdafit)
+grid.newpage()
+grid.table(qdaaucs, rows=NULL)
+qdaauc <- qdaaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### QDA Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(qdafit, 'QDA')
+qdaPRaucs <- prAUC(qdafit)
+grid.newpage()
+grid.table(qdaPRaucs, rows=NULL)
+qdaPRauc<-qdaPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### QDA Confusion Matrix
+```{r}
+set.seed(1)
+
+qdaThresh <- 0.021
+
+cmplot(qdafit,qdaThresh)
+
+qdacmetrics <- cmetable(qdafit, qdaThresh)
+grid.newpage()
+grid.table(subset(qdacmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+qdaacc<-qdacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+qdasens<-qdacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+qdaspec<-qdacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+qdafdr<-qdacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+qdappv<-qdacmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+
+##### QDA Threshold Rationale
+
+Sticking with the theme of desiring a higher sensitivity/recall (at the cost of precision), the mean Precision Recall Curve for this method gets close to a sensitivity/recall of 1 (0.992 to be more precise), without giving up as much precision (when compared to LDA), on the out-of-folds sample data with a threshold of `r qdaThresh`. Applying this threshold to the out-of-folds sample data results in a sensitivty nearly on par with the KNN method (has 1 more false negative than the KNN method), but it also has more uncertainty/variability in this metric as evident by its higher standard deviation. It also underperforms the KNN method in nearly every other metric, and in fact misclassifies nearly 3 times as many non-blue tarp images as blue tarp.
+
+#### $\underline{Logistic\space Regression}$
+```{r}
+set.seed(1)
+
+logfit <- train(tarp~Red+Green+Blue, data=training, method="glm", family="binomial", 
+              trControl = caret::trainControl("cv", number=10, 
+                        returnResamp='all',savePredictions='final', classProbs=TRUE))
+```
+
+##### Logistic Regression ROC Curve
+```{r}
+set.seed(1)
+
+Curves(logfit, 'Logistic Regression')
+logaucs <- AUC(logfit)
+grid.newpage()
+grid.table(logaucs, rows=NULL)
+logauc <- logaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### Logistic Regression Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(logfit, 'Logistic Reg')
+logPRaucs <- prAUC(logfit)
+grid.newpage()
+grid.table(logPRaucs, rows=NULL)
+logPRauc<-logPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### Logistic Regression Confusion Matrix
+```{r}
+set.seed(1)
+
+logThresh <- 0.0135
+
+cmplot(logfit,logThresh)
+
+logcmetrics <- cmetable(logfit, logThresh)
+grid.newpage()
+grid.table(subset(logcmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+logacc<-logcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+logsens<-logcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+logspec<-logcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+logfdr<-logcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+logppv<-logcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+
+##### Logistic Regression Threshold Rationale
+
+Again examining the mean Precision Recall Curve on the out-of-folds sample data, it appears we can get very close to a sensitivity/recall of 1 (over 0.99) at a threshold of `r logThresh`. However, this comes at a cost of approximately half our precision; better than LDA, but worse than KNN and QDA. Applying this threshold to the out-of-folds sample data results in the same number of false negatives as LDA, but with a higher amount of uncertainty/variablitity, as seen from its higher standard deviation. However, it predicts far less false positives than LDA (nearly 4 times as less) with less uncertainty, but it trails KNN and QDA in every metric, and in fact misclassifies nearly 4.5 times as many non-blue tarp images as blue tarp compared to KNN.
+
+#### $\underline{Random\space Forest}$
+```{r}
+set.seed(1)
+
+## Below was used to tune & identify optimal mtry parameter & plot it
+
+# rf_tune <- train(tarp~Red+Green+Blue, data=training, method='rf',
+#               importance=TRUE, 
+#               tuneGrid=data.frame(mtry=c(1:3)),
+#               trControl=caret::trainControl("cv", number=10, allowParallel=TRUE, 
+#               savePredictions=TRUE,returnResamp='all',classProbs=TRUE))
+# plot(rf_tune)
+
+## Saved as image and loaded back into markdown to save time/computing power on final knit
+
+## Reusing plot code from Mod 8 homework to again find optimal tuning parameters in addition
+## to Caret's tuning feature. Saved image & loaded in so don't have to rerun for knit
+
+# haiti2 <- training
+# indxtrain2 <- seq(1,as.integer(.8*dim(haiti2)[1]))
+# xtrain <- haiti2[indxtrain2, -c(1,5)]
+# xtest <- haiti2[-indxtrain2, -c(1,5)]
+# ytrain <- haiti2[indxtrain2, 5]
+# ytest <- haiti2[-indxtrain2, 5]
+# 
+# rf1 <- randomForest(xtrain, y=ytrain, xtest=xtest, ytest=ytest, mtry=3, ntree=3500)
+# rf2 <- randomForest(xtrain, y=ytrain, xtest=xtest, ytest=ytest, mtry=2, ntree=3500)
+# rf3 <- randomForest(xtrain,y=ytrain,xtest=xtest,ytest=ytest,mtry=1, ntree=3500)
+# 
+# forests <- data.frame('Number of Trees'=1:nrow(rf1$test$err.rate), 
+#                       'rf1'=rf1$test$err.rate, 
+#                       'rf2'=rf2$test$err.rate, 'rf3'=rf3$test$err.rate)
+# 
+# p <- ggplot(forests,aes(x=Number.of.Trees, y=rf1.Test))+geom_line(aes(col="orange"))+
+#   geom_line(data=forests, aes(x=Number.of.Trees, y=rf2.Test, col='blue')) + 
+#   geom_line(data=forests, aes(x=Number.of.Trees, y=rf3.Test, col='red')) + 
+#   labs(x='Number of Trees', y='Test Error') + 
+#   scale_color_identity(name='m Predictors', 
+#                        breaks=c('orange', 'blue', 'red'), 
+#                        labels=c('m = 3', 'm = 2', 'm = 1'),
+#                        guide='legend')
+# p + theme(legend.position = c(0.9, 0.8))
+
+
+## trained full data on optimal mtry to save time/computing power in final knit
+
+rf_fit <- train(tarp~Red+Green+Blue, data=training, method='rf',
+              importance=TRUE,
+              tuneGrid=data.frame(mtry=2),
+              trControl=caret::trainControl("cv", number=10, allowParallel=TRUE,
+              savePredictions=TRUE,returnResamp='all',classProbs=TRUE))
+```
+
+![](/Users/Alex/Documents/R/UVA Projects_R/sys6018/Project/rfTuning.png)
+
+![](/Users/Alex/Documents/R/UVA Projects_R/sys6018/Project/haitiForest.png)
+
+##### Random Forest Tuning Parameter Interpretation & Explanation
+
+The only tuning parameter I selected for the random forest model was the *mtry* parameter, which is the number of randomly sampled predictors available as split candidates each time a split in a tree occurs. This helps to decorrelate the number of trees used in the bagging process, as it is less likely they will all use the strongest predictor as their top split. By forcing each split in a tree to consider only a subset of the predictors, the average of the resulting trees (i.e. the final model) will be less variable. The chosen *mtry* value of `r rf_fit$bestTune[,1]` was selected using Caret's tuning functionality. I also ran 3 separate randomforest() BaseR fits using different *mtry* values and plotted their test errors against the number trees which also resulted in a suggested *mtry* value of 2. Although *ntree* is a tuning parameter in BaseR randomforest(), it is not available in Caret, and as my second plot shows, it is not as crucial in the tuning process as performance plateaus after a certain point; which appears to be around 500 trees, the default *ntree* value of Caret's "rf" method.
+
+##### Random Forest ROC Curve
+```{r}
+set.seed(1)
+
+Curves(rf_fit, 'Random Forest')
+rfaucs <- AUC(rf_fit)
+grid.newpage()
+grid.table(rfaucs, rows=NULL)
+rfauc <- rfaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### Random Forest Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(rf_fit, 'Random Forest')
+rfPRaucs <- prAUC(rf_fit)
+grid.newpage()
+grid.table(rfPRaucs, rows=NULL)
+rfPRauc<-rfPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### Random Forest Confusion Matrix
+```{r}
+set.seed(1)
+
+rfThresh <- 0.005
+
+cmplot(rf_fit,rfThresh)
+
+rfcmetrics <- cmetable(rf_fit, rfThresh)
+grid.newpage()
+grid.table(subset(rfcmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+rfacc<-rfcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+rfsens<-rfcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+rfspec<-rfcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+rffdr<-rfcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+rfppv<-rfcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+##### Random Forest Threshold Rationale
+
+Examining the mean Precision Recall Curve on the out-of-folds sample data, it appears we can get very close to a sensitivity/recall of 1 (approximately 0.989) at a threshold of `r rfThresh`. In fact, this seems to be our "threshold limit" as any lower values don't improve our sensitivity/recall, and in fact only lead to an increase in the false positive rate. While its sensitivity given the chosen threshold slightly lags all the prior models, all of its other metrics surpass the prior models except for KNN (again, given their chosen thresholds), and in fact, the average AUC of its Precision Recall Curve is the highest seen thus far (something not dependent upon a threshold selection).
+
+#### $\underline{SVM}$
+```{r}
+set.seed(1)
+
+## Below was used for various tuning procedures & plotting for different kernels
+## Radial provided the highest accuracy, so only providing parameter tuning plot for it
+## as it will be the SVM model I will use for the project
+
+# lintun <- train(tarp~Red+Green+Blue, data=training, method="svmLinear2", 
+#                 preProcess=c("center", "scale"), 
+#                 tuneGrid=data.frame(ranges=list(cost=c(0.001, 0.01, 0.1, 
+#                                                        1,5,10,100))), 
+#                 trControl = caret::trainControl("cv", number=10, 
+#                         returnResamp='all',savePredictions='final', classProbs=TRUE, 
+#                         allowParallel=TRUE))
+# plot(lintun)
+
+# radtun <- train(tarp~Red+Green+Blue, data=training, method="svmRadial",
+#                 preProcess=c("center", "scale"),
+#                 tuneGrid=expand.grid(sigma=c(1/0.5,1,1/2,1/3,1/4),
+#                                                  C=c(0.01,0.1,1,10,100)),
+#                 trControl = caret::trainControl("cv", number=10,
+#                         returnResamp='all',savePredictions='final', classProbs=TRUE,
+#                         allowParallel=TRUE))
+# plot(radtun)
+
+# polytun <- train(tarp~Red+Green+Blue, data=training, method="svmPoly", 
+#                 preProcess=c("center", "scale"), 
+#                 tuneLength=5,
+#                 trControl = caret::trainControl("cv", number=10, 
+#                         returnResamp='all',savePredictions='final', classProbs=TRUE, 
+#                         allowParallel=TRUE))
+# plot(polytun)
+
+svmfit <- train(tarp~Red+Green+Blue, data=training, method="svmRadial",
+                preProcess=c("center", "scale"),
+                tuneGrid=expand.grid(sigma=c(2),C=c(100)),
+                trControl = caret::trainControl("cv", number=10,
+                        returnResamp='all',savePredictions='final', classProbs=TRUE,
+                        allowParallel=TRUE))
+```
+
+![](/Users/Alex/Documents/R/UVA Projects_R/sys6018/Project/radialTuning.png)
+
+##### SVM Tuning Parameter Interpretation & Explanation
+
+The tuning parameters used for my SVM model were sigma and cost (i.e. C). Although there are various different kernels for the SVM method, I chose the radial kernel as it returned the highest accuracy (given its optimal model), from the 3 different tuning kernels I ran; the other 2 being linear and polynomial. Those two have been commented out/excluded from the final output as their computational cost/runtime was far too expensive/long. The first parameter in my model, sigma, is the amount of curvature/flexibility allowed in the decision boundary, and the second paramter, cost, is an error control measure; that is it determines the number/severity of the violations to the margin (and thus the hyperplane) that will be tolerated. It is essentially a budget for how many *n* observations can violate the margin. Higher cost means we are more tolerant of violations, and the margin widens, which amounts to fitting the data "less hard" and obtaining a classifier that is potentially more biased, but with lower variance. Essentially it determines our bias-variance trade-off. These parameters were selected using Caret's tuning functionality. I passed in a series of possible values for sigma & cost and allowed Caret to determine the parameters by deciding which combination would return the highest accuracy; which in this instance was a sigma of `r svmfit$bestTune[,1]` and a cost of `r svmfit$bestTune[,2]`.
+
+##### SVM ROC Curve
+```{r}
+set.seed(1)
+
+Curves(svmfit, 'SVM')
+svmaucs <- AUC(svmfit)
+grid.newpage()
+grid.table(svmaucs, rows=NULL)
+svmauc <- svmaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### SVM Precision Recall Curve
+```{r}
+set.seed(1)
+
+PRC(svmfit, 'SVM')
+svmPRaucs <- prAUC(svmfit)
+grid.newpage()
+grid.table(svmPRaucs, rows=NULL)
+svmPRauc<-svmPRaucs%>%tibble()%>%filter(Fold=='Mean')%>%select(AUC_Estimate)%>%pull()
+```
+
+##### SVM Confusion Matrix
+```{r}
+set.seed(1)
+
+svmThresh <- 0.00369
+
+cmplot(svmfit,svmThresh)
+
+svmcmetrics <- cmetable(svmfit, svmThresh)
+grid.newpage()
+grid.table(subset(svmcmetrics,select=c(Fold,accuracy,sensitivity,specificity,
+                                       FDR,precision)), rows=NULL)
+svmacc<-svmcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(accuracy)%>%pull()
+svmsens<-svmcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(sensitivity)%>%pull()
+svmspec<-svmcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(specificity)%>%pull()
+svmfdr<-svmcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(FDR)%>%pull()
+svmppv<-svmcmetrics%>%tibble()%>%filter(Fold=='Mean')%>%select(precision)%>%pull()
+```
+
+##### SVM Threshold Rationale
+
+Examining the mean Precision Recall Curve on the out-of-folds sample data, it appears we can get to a sensitivity/recall of exactly 1 at a threshold of `r svmThresh`. Applying this threshold to the out-of-folds sample data resulted in an accuracy of over 97%, but most importantly accomplished my goal of providing aid to everyone! Not a single person was overlooked (0 false negatives), and although the false positive rate was higher than KNN, Random Forest & QDA, it was still significantly lower than that of LDA & Logistic regression, and in my opinion, not high enough to offset the fact that not a single displaced person was overlooked.
+
+#### **K-Folds Out of Sampling Performance Table**
+
+|Method|KNN (*k*=`r knnfit$bestTune[,1]`)|LDA|QDA|Logistic Regression|Random Forest(*mtry*=`r rf_fit$bestTune[,1]`)|SVM(sigma=`r svmfit$bestTune[,1]`, cost=`r svmfit$bestTune[,2]`)|
+|------|-----------|----|----|-------------------|-----------------------|----------------------|
+|Accuracy|`r knnacc`|`r ldaacc`|`r qdaacc`|`r logacc`|`r rfacc`|`r svmacc`|
+|AUC|`r knnauc`|`r ldaauc`|`r qdaauc`|`r logauc`|`r rfauc`|`r svmauc`|
+|ROC|See Above|See Above|See Above|See Above|See Above|See Above|
+|PR_AUC|`r knnPRauc`|`r ldaPRauc`|`r qdaPRauc`|`r logPRauc`|`r rfPRauc`|`r svmPRauc`|
+|Prec_Rec Curve|See Above|See Above|See Above|See Above|See Above|See Above|
+|Threshold|`r knnThresh`|`r ldaThresh`|`r qdaThresh`|`r logThresh`|`r rfThresh`|`r svmThresh`|
+|Sensitivity=Recall=Power|`r knnsens`|`r ldasens`|`r qdasens`|`r logsens`|`r rfsens`|`r svmsens`|
+|Specificity=1-FPR|`r knnspec`|`r ldaspec`|`r qdaspec`|`r logspec`|`r rfspec`|`r svmspec`|
+|FDR|`r knnfdr`|`r ldafdr`|`r qdafdr`|`r logfdr`|`r rffdr`|`r svmfdr`|
+|Precision=PPV|`r knnppv`|`r ldappv`|`r qdappv`|`r logppv`|`r rfppv`|`r svmppv`|
+
+### **Hold-Out Sample Performance**
+
+#### $\underline{Data\space Reading\space and\space Cleaning}$
+```{r, results='hide'}
+files <- dir(pattern="*.txt")
+hdr<-c("ID", "X", "Y", "Map X", "Map Y", "Lat", "Lon", "Red", "Green", "Blue")
+holdout<-data.frame()
+for (x in files){
+  ho<-read.table(x, skip=8, col.names=hdr)
+  ho<-mutate(ho,tarp=as.factor(ifelse(grepl(pattern="ROI_NO*", x),"NoTarp","Tarp")))
+  holdout <- rbind(holdout, ho)
+}
+holdout <- subset(holdout, select=c("Red","Green","Blue","tarp"))
+```
+
+#### $\underline{KNN}$
+```{r}
+knnpred <- predict(knnfit, newdata=holdout, type='prob')
+
+hoROC(knnpred,paste0('KNN (k=', knnfit$bestTune[,1],')'))
+knnauc2 <- hoAUC(knnpred)
+hoPR(knnpred,paste0('KNN (k=', knnfit$bestTune[,1],')'))
+knnPRauc2 <- hoprAUC(knnpred)
+
+knnThresh2 <- 0.075
+
+hocmplot(knnpred, knnThresh2)
+knnho<-hocm(knnpred, knnThresh2)
+
+knnacc2<-knnho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+knnsens2<-knnho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+knnspec2<-knnho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+knnfdr2<- 1 - knnho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+knnppv2<-knnho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### $\underline{LDA}$
+```{r}
+ldapred <- predict(ldafit, newdata=holdout, type='prob')
+
+hoROC(ldapred,'LDA')
+ldaauc2 <- hoAUC(ldapred)
+hoPR(ldapred,'LDA')
+ldaPRauc2 <- hoprAUC(ldapred)
+
+ldaThresh2 <- 0.005
+
+hocmplot(ldapred, ldaThresh2)
+ldaho<-hocm(ldapred, ldaThresh2)
+
+ldaacc2<-ldaho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+ldasens2<-ldaho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+ldaspec2<-ldaho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+ldafdr2<- 1 - ldaho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+ldappv2<-ldaho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### $\underline{QDA}$
+```{r}
+qdapred <- predict(qdafit, newdata=holdout, type='prob')
+
+hoROC(qdapred,'QDA')
+qdaauc2 <- hoAUC(qdapred)
+hoPR(qdapred,'QDA')
+qdaPRauc2 <- hoprAUC(qdapred)
+
+qdaThresh2 <- 0.008
+
+hocmplot(qdapred, qdaThresh2)
+qdaho<-hocm(qdapred, qdaThresh2)
+
+qdaacc2<-qdaho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+qdasens2<-qdaho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+qdaspec2<-qdaho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+qdafdr2<- 1 - qdaho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+qdappv2<-qdaho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### $\underline{Logistic\space Regression}$
+```{r}
+logpred <- predict(logfit, newdata=holdout, type='prob')
+
+hoROC(logpred,'Logistic Regression')
+logauc2 <- hoAUC(logpred)
+hoPR(logpred,'Logistic Regression')
+logPRauc2 <- hoprAUC(logpred)
+
+logThresh2 <- 0.75
+
+hocmplot(logpred, logThresh2)
+logho<-hocm(logpred, logThresh2)
+
+logacc2<-logho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+logsens2<-logho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+logspec2<-logho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+logfdr2<- 1 - logho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+logppv2<-logho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### $\underline{Random\space Forest}$
+```{r}
+rfpred <- predict(rf_fit, newdata=holdout, type='prob')
+
+hoROC(rfpred,'Random Forest')
+rfauc2 <- hoAUC(rfpred)
+hoPR(rfpred,'Random Forest')
+rfPRauc2 <- hoprAUC(rfpred)
+
+rfThresh2 <- 0.0095
+
+hocmplot(rfpred, rfThresh2)
+rfho<-hocm(rfpred, rfThresh2)
+
+rfacc2<-rfho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+rfsens2<-rfho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+rfspec2<-rfho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+rffdr2<- 1 - rfho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+rfppv2<-rfho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### $\underline{SVM}$
+```{r}
+svmpred <- predict(svmfit, newdata=holdout, type='prob')
+
+hoROC(svmpred,'SVM')
+svmauc2 <- hoAUC(svmpred)
+hoPR(svmpred,'SVM')
+svmPRauc2 <- hoprAUC(svmpred)
+
+svmThresh2 <- 0.00001
+
+hocmplot(svmpred, svmThresh2)
+svmho<-hocm(svmpred, svmThresh2)
+
+svmacc2<-svmho%>%tidy()%>%filter(term=='accuracy')%>%select(estimate)%>%pull()
+svmsens2<-svmho%>%tidy()%>%filter(term=='sensitivity')%>%select(estimate)%>%pull()
+svmspec2<-svmho%>%tidy()%>%filter(term=='specificity')%>%select(estimate)%>%pull()
+svmfdr2<- 1 - svmho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+svmppv2<-svmho%>%tidy()%>%filter(term=='precision')%>%select(estimate)%>%pull()
+```
+
+#### **Hold-Out Sample Performance Table**
+
+|Method|KNN (*k*=`r knnfit$bestTune[,1]`)|LDA|QDA|Logistic Regression|Random Forest(*mtry*=`r rf_fit$bestTune[,1]`)|SVM(sigma=`r svmfit$bestTune[,1]`, cost=`r svmfit$bestTune[,2]`)|
+|------|-----------|----|----|-------------------|-----------------------|----------------------|
+|Accuracy|`r knnacc2`|`r ldaacc2`|`r qdaacc2`|`r logacc2`|`r rfacc2`|`r svmacc2`|
+|AUC|`r knnauc2`|`r ldaauc2`|`r qdaauc2`|`r logauc2`|`r rfauc2`|`r svmauc2`|
+|ROC|See Above|See Above|See Above|See Above|See Above|See Above|
+|PR_AUC|`r knnPRauc2`|`r ldaPRauc2`|`r qdaPRauc2`|`r logPRauc2`|`r rfPRauc2`|`r svmPRauc2`|
+|Prec_Rec Curve|See Above|See Above|See Above|See Above|See Above|See Above|
+|Threshold|`r knnThresh2`|`r ldaThresh2`|`r qdaThresh2`|`r logThresh2`|`r rfThresh2`|`r svmThresh2`|
+|Sensitivity=Recall=Power|`r knnsens2`|`r ldasens2`|`r qdasens2`|`r logsens2`|`r rfsens2`|`r svmsens2`|
+|Specificity=1-FPR|`r knnspec2`|`r ldaspec2`|`r qdaspec2`|`r logspec2`|`r rfspec2`|`r svmspec2`|
+|FDR|`r knnfdr2`|`r ldafdr2`|`r qdafdr2`|`r logfdr2`|`r rffdr2`|`r svmfdr2`|
+|Precision=PPV|`r knnppv2`|`r ldappv2`|`r qdappv2`|`r logppv2`|`r rfppv2`|`r svmppv2`|
+
+
+### **Conclusions**
+
+#### 1. Discussion of Best Performing Algorithm(s) in the Cross-Validation and Hold-Out Data
+When examining the K-Folds out-of-sample performance table at first glance, it appears that on an individual basis each algorithm performed incredibly well. In fact, besides LDA, for the ROC curves they all returned average AUC values (across folds) over 0.99 (and LDA was incredibly close with a value of 0.988) and for the Precision Recall curves, they all returned average AUC values over 0.96 (except LDA again, with an average PR AUC of 0.859). Yet going beyond these simple point estimates, we see there is one algorithm that stood out above the rest; the Support Vector Machine. Not only did it have the highest AUC for both the ROC & Precision Recall Curves, but it also had the least amount of uncertainty/variability in its estimates, as evident by its lowest standard deviation for both AUC estimates. However, performance evaluation became a bit murkier when it came time to set the threshold for each method. Given my preference for a high sensitivity to limit the number of overlooked displaced people, the threshold was set very low for each algorithm. In doing so, SVM achieved a perfect sensitivity and had 0 false negatives, however, this came at a fairly great cost of precision, as it dropped to approximately 0.58, the third lowest of all the methods. It is here that KNN stood out, as it had a near perfect sensitivity (given my chosen threshold) of approximately 0.9926, and also had the highest precision among all the algorithms of approximately 0.808301. Since we definitely do have a finite amount of manpower to help provide aid to all the displaced people, we want to ensure we correctly identify as many displaced people (with as much certainty) as possible while simultaenously limiting our number of false positives, so resources can be properly allocated to provide food and water to as many displaced people as possible without sending it to too many locations that don't actually contain displaced individuals. Taking this into account, KNN and Random Forest appear to best accomplish this goal, as they both have sensitivities of approximately 0.99, and false discovery rates around 0.20 (the lowest of all the methods). It should be noted however, that when it comes to variability and uncertainty, LDA had the lowest standard deviation across FDR, precision and sensitivity (except for SVM on that last one since its theshold was set so low it had perfect sensitivity across every fold).
+
+Applying our models to the final hold-out data, we see some fairly different results. While all the models still have high AUC's for their ROC curves, SVM now has the lowest value, as opposed to the best that it had against the cross-validation data. The AUC of all the precision recall curves dropped significantly too (except for logistic regression), but again, SVM was hit the hardest, as it went from best to worst in this metric as well. Although all of the models still have high overall accuracies, many of them saw a slight decrease in this measure and only two saw an increase; LDA and logistic regression. When we dive deeper and look across all the metrics for the hold-out data there is clearly one "winner" above the rest; logistic regression. Its ROC curve AUC increased to a near perfect value of 1 (0.9994 to be more precise), one of 2 models to see an increase in this metric; the other being LDA, and it is the only model to maintain a precision recall curve AUC over 0.95; the second highest being QDA at 0.76. These performance disparities become even more apparent once a threshold value is set for each model, as SVM is now the worst performing in each statistic and logistic regression is the best performing. In fact it was the only model to have a false discovery rate under 0.5 (0.383 to be more exact), while achieving the highest recall value as well. KNN still performed moderately well, as it had the second highest overall accuracy on the hold-out data and second lowest false discovery rate (again lagging logistic regression). These findings make it apparent that there is no "one size fits all" model, and a variety of factors, such as the data they are trained on & their tuning parameters, can have a large effect on their performance in the field.
+
+#### 2. Discussion/Analysis Justifying Why Findings Above are Compatible or Reconcilable
+It is clear from the two metric tables that the models do not perform consistently across data sets. By examining the differences in these tables, specifically the direction each of the performance metrics for each model went, I believe there is one primary reason for these performance disparities; the bias-variance trade-off inherit in each algorithm. The only models that saw an increase in their accuracy and ROC curve AUC were LDA and logistic regression, high-bias algorithms that make more assumptions about the form of the target model, and are thus less susceptible to being influenced by any possible "noise" specific to their training data set during the fitting procedure. These models also saw the least amount of reduction in their precision recall curve AUC (another metric not influenced by threshold selection). Consequently, KNN and SVM are high-variance models that fit more flexibly/closely to their training data, and thus, were possibly overfit to the training set. This could explain why they saw the largest drops in their ROC and Precision Recall AUCs when run against the hold-out data; they captured too much "noise" in the training data that did not apply to the hold-out set. I believe this theory is further supported by the performance differences seen in QDA and Random Forest as well. While both algorithms are more flexible than LDA and logistic regression, they are not as variable/flexible as KNN and SVM. QDA is very similar to LDA except that it assumes a different covariance matrix for each class in its function (making it slightly more flexible and less bias), and although random forest is made up of decision trees (a high-variance model), its aggregation of a multitude of them into a final fit reduces its overall variance. The fact that these models saw less of a reduction in their AUC's compared to KNN and SVM, furthers my belief that the primary reason for these performance differences across the data sets is due to the bias-variance trade-off. To put it simply, the more flexible models overfit to the training data, while the more bias models did not.
+
+#### 3. Recommendation & Rationale Regarding Chosen Algorithm For Detection of Blue Tarps
+If I had to choose just one of these algorithms for detection of blue tarps going forward, I would select logistic regression. While the easy rationale would be to just say it was the best performer on the hold-out set, I believe it is the best selection given the nature of the data and its purpose. Since these models were trained on high resolution geo-referenced imagery, and the predictors were just composed of 3 pixel colors, I believe there's too much noise that could be (and apparently was) captured during the model fitting process. There are so many blue things beyond just tarps (vehicles, clothes, pools, not to mention these pictures were taken near a port city), that I believe the more flexible models, such as KNN and SVM, would capture too much of this information from this specific training data. A more biased model, such as logistic regression is less likely to include this "noise" in its fit, which would make it more applicable for future blue tarp detection missions (so long as they're not in Santorini, Greece).
+
+#### 4. Discussion of the Relevance of the Metrics Calculated in the Tables for this Context
+Starting off, I believe AUC (of both ROC and Precision Recall curves) to be one of the more important metrics regardless of context. They let us know from the get-go if our model is better (or worse) than just randomly guessing, and if further tuning, data gathering or an entirely different approach should be taken towards the goal at hand. For this specific context though, I believe the most important metric is sensitivity/recall, followed closely by false discovery rate. As I previously stated in Part 1 and further up in this submission, the most important aspect to me of this mission is making sure as few displaced people are overlooked/forgotten as possible, which is why all of my thresholds were selected with a high sensitivity in mind; to minimize the false negative rate. With that in mind, I believe the threshold should be set low, but high enough that we aren't just predicting blue tarp every time, while at the same time  keeping our false discovery rate within a reasonable limit, as we do live in the real world and resources are finite, so they must be allocated efficiently. Unfortunately, I did not have the time to do the Cost-Benefit analysis to determine this "reasonable" level, but believe false discovery rate should be related to a budgetary limit as assessed by a governing body. As we saw with Haiti, over $3.5 billion in relief funding was received, and if the budget allows for continual search/rescue parties to be sent out, then they should be. I personally do not agree with some of my classmates' belief that fruitless ventures could undermine morale; those rescue workers volunteered for that job with the purpose of providing hope and raising morale. The job IS searching for and finding people to provide them relief. Finally, in this specific context, I believe specificity is important due to the fact that the proportion of blue tarps/displaced people compared to every other possible image classification is very low, and as such the false positive rate should be low, meaning the specificity should be high. If it were to ever get too low, than many resources would go to waste (I personally feel this metric is most important in medical diagnosis).
+
+#### 5. Why Precision Recall over ROC Curves?
+I believe for this specific assignment Precision Recall curves are much more helpful than ROC curves due to the disproportion evident in the two classes of Blue Tarp vs. No Tarp. There are significantly more No Tarp observations than Blue Tarp observations, and we are not interested in predicting/identifying locations where there is No Tarp/displaced person. Precision Recall curves do not consider true negatives, whereas ROC curves do, and thus give a more optimistic view of model performance for this situation, since proportionally there are just WAYYYY more No Tarp images. What I am most interested in is identifying/finding as many blue tarps (the minority class in this classification problem) as possible, while minimzing the number of false positives and negatives, and a precision recall curve better assists me in accomplishing this.
+
+#### 6. Suggested Improvement to Training Method/Data
+This may be considered a "weak" conclusion at best, and I'm sure it would only make the project much more complex/strenuous for future cohorts if it were to be applied, but while running our Part 2 models, specifically Random Forest, it got me thinking about the Microsoft Kinect paper. I'm not sure if this could be captured from the geo-referenced images or not, but could some sort of "point-to-point" correspondences be trained on thousands of images of blue tarps to form some sort of bounding or shape feature, as an additional predictor. I'm not sure if this could be done using Random Forest on the provided images, like it was with the kinect, due to perhaps some lack of depth feature that the kinect provides that the images do not, but I remember reading an article a while back on neural networks trying this (I believe using the Keras package). If it is possible to add this as some sort of "dimensional" predictor(s), maybe it could then be used when training our models to help differentiate tarps from the tons of other blue items, especially things like cars. Regardless, thanks for a great semester Professor Schwartz!!
+
+
+```{r, include=FALSE, results='hide'}
+parallel::stopCluster(cl)
+```
+
+
+
+
+
