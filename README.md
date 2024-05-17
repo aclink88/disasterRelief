@@ -145,7 +145,7 @@ Alex Link
 
 #### $\underline{KNN}$
 
-![](~/R/disasterRelief/knnTuning.png)
+![](/images/knnTuning.png)
 
 ##### KNN ROC Curve
 
