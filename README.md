@@ -10,8 +10,7 @@ Alex Link
         href="#underlinedataspace-readingspace-cleaningspace-andspace-shuffling"
         id="toc-underlinedataspace-readingspace-cleaningspace-andspace-shuffling">Data Reading, Cleaning
         and Shuffling</a>
-    -   <a href="#underlineknn" id="toc-underlineknn"><span
-        class="math inline">$\underline{KNN}$</span></a>
+    -   <a href="#underlineknn" id="toc-underlineknn">KNN</a>
         -   <a href="#knn-roc-curve" id="toc-knn-roc-curve">KNN ROC Curve</a>
         -   <a href="#knn-precision-recall-curve"
             id="toc-knn-precision-recall-curve">KNN Precision Recall Curve</a>
@@ -19,8 +18,7 @@ Alex Link
             Confusion Matrix</a>
         -   <a href="#knn-threshold-rationale" id="toc-knn-threshold-rationale">KNN
             Threshold Rationale</a>
-    -   <a href="#underlinelda" id="toc-underlinelda"><span
-        class="math inline">$\underline{LDA}$</span></a>
+    -   <a href="#underlinelda" id="toc-underlinelda">LDA</a>
         -   <a href="#lda-roc-curve" id="toc-lda-roc-curve">LDA ROC Curve</a>
         -   <a href="#lda-precision-recall-curve"
             id="toc-lda-precision-recall-curve">LDA Precision Recall Curve</a>
@@ -28,8 +26,7 @@ Alex Link
             Confusion Matrix</a>
         -   <a href="#lda-threshold-rationale" id="toc-lda-threshold-rationale">LDA
             Threshold Rationale</a>
-    -   <a href="#underlineqda" id="toc-underlineqda"><span
-        class="math inline">$\underline{QDA}$</span></a>
+    -   <a href="#underlineqda" id="toc-underlineqda">QDA</a>
         -   <a href="#qda-roc-curve" id="toc-qda-roc-curve">QDA ROC Curve</a>
         -   <a href="#qda-precision-recall-curve"
             id="toc-qda-precision-recall-curve">QDA Precision Recall Curve</a>
@@ -38,8 +35,7 @@ Alex Link
         -   <a href="#qda-threshold-rationale" id="toc-qda-threshold-rationale">QDA
             Threshold Rationale</a>
     -   <a href="#underlinelogisticspace-regression"
-        id="toc-underlinelogisticspace-regression"><span
-        class="math inline">$\underline{Logistic\space Regression}$</span></a>
+        id="toc-underlinelogisticspace-regression">Logistic Regression</a>
         -   <a href="#logistic-regression-roc-curve"
             id="toc-logistic-regression-roc-curve">Logistic Regression ROC Curve</a>
         -   <a href="#logistic-regression-precision-recall-curve"
@@ -52,8 +48,7 @@ Alex Link
             id="toc-logistic-regression-threshold-rationale">Logistic Regression
             Threshold Rationale</a>
     -   <a href="#underlinerandomspace-forest"
-        id="toc-underlinerandomspace-forest"><span
-        class="math inline">$\underline{Random\space Forest}$</span></a>
+        id="toc-underlinerandomspace-forest">Random Forest</a>
         -   <a href="#random-forest-tuning-parameter-interpretation--explanation"
             id="toc-random-forest-tuning-parameter-interpretation--explanation">Random
             Forest Tuning Parameter Interpretation &amp; Explanation</a>
@@ -68,8 +63,7 @@ Alex Link
         -   <a href="#random-forest-threshold-rationale"
             id="toc-random-forest-threshold-rationale">Random Forest Threshold
             Rationale</a>
-    -   <a href="#underlinesvm" id="toc-underlinesvm"><span
-        class="math inline">$\underline{SVM}$</span></a>
+    -   <a href="#underlinesvm" id="toc-underlinesvm">SVM</a>
         -   <a href="#svm-tuning-parameter-interpretation--explanation"
             id="toc-svm-tuning-parameter-interpretation--explanation">SVM Tuning
             Parameter Interpretation &amp; Explanation</a>
@@ -87,23 +81,16 @@ Alex Link
     id="toc-hold-out-sample-performance"><strong>Hold-Out Sample
     Performance</strong></a>
     -   <a href="#underlinedataspace-readingspace-andspace-cleaning"
-        id="toc-underlinedataspace-readingspace-andspace-cleaning"><span
-        class="math inline">$\underline{Data\space Reading\space and\space
-        Cleaning}$</span></a>
-    -   <a href="#underlineknn-1" id="toc-underlineknn-1"><span
-        class="math inline">$\underline{KNN}$</span></a>
-    -   <a href="#underlinelda-1" id="toc-underlinelda-1"><span
-        class="math inline">$\underline{LDA}$</span></a>
-    -   <a href="#underlineqda-1" id="toc-underlineqda-1"><span
-        class="math inline">$\underline{QDA}$</span></a>
+        id="toc-underlinedataspace-readingspace-andspace-cleaning">Data Reading and
+        Cleaning</a>
+    -   <a href="#underlineknn-1" id="toc-underlineknn-1">KNN</a>
+    -   <a href="#underlinelda-1" id="toc-underlinelda-1">LDA</a>
+    -   <a href="#underlineqda-1" id="toc-underlineqda-1">QDA</a>
     -   <a href="#underlinelogisticspace-regression-1"
-        id="toc-underlinelogisticspace-regression-1"><span
-        class="math inline">$\underline{Logistic\space Regression}$</span></a>
+        id="toc-underlinelogisticspace-regression-1">Logistic Regression</a>
     -   <a href="#underlinerandomspace-forest-1"
-        id="toc-underlinerandomspace-forest-1"><span
-        class="math inline">$\underline{Random\space Forest}$</span></a>
-    -   <a href="#underlinesvm-1" id="toc-underlinesvm-1"><span
-        class="math inline">$\underline{SVM}$</span></a>
+        id="toc-underlinerandomspace-forest-1">Random Forest</a>
+    -   <a href="#underlinesvm-1" id="toc-underlinesvm-1">SVM</a>
     -   <a href="#hold-out-sample-performance-table"
         id="toc-hold-out-sample-performance-table"><strong>Hold-Out Sample
         Performance Table</strong></a>
