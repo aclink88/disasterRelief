@@ -149,15 +149,15 @@ Alex Link
 
 ##### KNN ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-7-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-7-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-7-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-7-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### KNN Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-8-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-8-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### KNN Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-9-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-9-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-9-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-9-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### KNN Threshold Rationale
 
@@ -198,15 +198,15 @@ Puerto Rico-Hurricane Maria standards).
 
 ##### LDA ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-11-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-11-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-11-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-11-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### LDA Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-12-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-12-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-12-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-12-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### LDA Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-13-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-13-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-13-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-13-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### LDA Threshold Rationale
 
@@ -234,15 +234,15 @@ underperformed compared to KNN.
 
 ##### QDA ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-15-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-15-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-15-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-15-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### QDA Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-16-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-16-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-16-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-16-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### QDA Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-17-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-17-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-17-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-17-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### QDA Threshold Rationale
 
@@ -262,15 +262,15 @@ tarp images as blue tarp.
 
 ##### Logistic Regression ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-19-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-19-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-19-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-19-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Logistic Regression Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-20-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-20-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-20-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-20-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Logistic Regression Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-21-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-21-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-21-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-21-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Logistic Regression Threshold Rationale
 
@@ -313,15 +313,15 @@ of Caret’s “rf” method.
 
 ##### Random Forest ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-23-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-23-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-23-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-23-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Random Forest Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-24-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-24-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-24-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-24-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Random Forest Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-25-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-25-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-25-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-25-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### Random Forest Threshold Rationale
 
@@ -365,15 +365,15 @@ this instance was a sigma of 2 and a cost of 100.
 
 ##### SVM ROC Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-27-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-27-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-27-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-27-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### SVM Precision Recall Curve
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-28-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-28-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-28-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-28-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### SVM Confusion Matrix
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-29-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-29-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-29-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-29-2.png" width="60%" style="display: block; margin: auto;" />
 
 ##### SVM Threshold Rationale
 
@@ -409,27 +409,27 @@ overlooked.
 
 #### $\underline{KNN}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-31-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-31-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-31-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-31-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-31-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-31-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### $\underline{LDA}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-32-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-32-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-32-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-32-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-32-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-32-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### $\underline{QDA}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-33-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-33-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-33-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-33-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### $\underline{Logistic\space Regression}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-34-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-34-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-34-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-34-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### $\underline{Random\space Forest}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-35-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-35-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-35-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-35-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### $\underline{SVM}$
 
-<img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-36-1.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-36-2.png" width="60%" style="display: block; margin: auto;" /><img src="CourseProject_ReadMe_files/figure-gfm/unnamed-chunk-36-3.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-36-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-36-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-36-3.png" width="60%" style="display: block; margin: auto;" />
 
 #### **Hold-Out Sample Performance Table**
 
