@@ -149,7 +149,7 @@ Alex Link
 
 ##### KNN ROC Curve
 
-<img src="images/figure-gfm/unnamed-chunk-7-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-7-2.png" width="60%" style="display: block; margin: auto;" />
+<img src="/images/figure-gfm/unnamed-chunk-7-1.png" width="50%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-7-2.png" width="50%" style="display: block; margin: auto;" />
 
 ##### KNN Precision Recall Curve
 
