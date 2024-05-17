@@ -288,9 +288,9 @@ images as blue tarp compared to KNN.
 
 #### $\underline{Random\space Forest}$
 
-![](~/R/disasterRelief/rfTuning.png)
+![](/images/rfTuning.png)
 
-![](~/R/disasterRelief/haitiForest.png)
+![](/images/haitiForest.png)
 
 ##### Random Forest Tuning Parameter Interpretation & Explanation
 
@@ -338,7 +338,7 @@ thus far (something not dependent upon a threshold selection).
 
 #### $\underline{SVM}$
 
-![](~/R/disasterRelief/radialTuning.png)
+![](/images/radialTuning.png)
 
 ##### SVM Tuning Parameter Interpretation & Explanation
 
