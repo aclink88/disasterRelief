@@ -166,8 +166,7 @@ those locations (even if there is not a displaced person located there),
 I believe these possible sunk costs are outweighed by the lower false
 negative rate, as it is more human lives saved; call me a hippy, but I
 don’t believe in placing a value on human life, even though some
-government agency seem to do so
-(<https://www.transportation.gov/sites/dot.gov/files/docs/2016%20Revised%20Value%20of%20a%20Statistical%20Life%20Guidance.pdf>).
+government agencies seem to do so (<https://www.transportation.gov/sites/dot.gov/files/docs/2016%20Revised%20Value%20of%20a%20Statistical%20Life%20Guidance.pdf>).
 Applying this threshold to the out-of-folds sample data resulted in an
 accuracy of over 99%, but most importantly, almost accomplished my goal
 of providing aid to all displaced persons. Unfortunately 15 people (less
