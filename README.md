@@ -2,7 +2,6 @@ Disaster Relief Project
 ================
 Alex Link
 
--   <a href="#function-coding" id="toc-function-coding">Function Coding</a>
 -   <a href="#k-folds-out-of-sampling-performance"
     id="toc-k-folds-out-of-sampling-performance"><strong>K-Folds Out of
     Sampling Performance</strong></a>
@@ -178,7 +177,7 @@ the sensitivity/recall was still very good, indicating many people would
 be located and (hopefully) be provided with aid (especially compared to
 Puerto Rico-Hurricane Maria standards).
 
-#### $\underline{LDA}$
+#### LDA
 
 ##### LDA ROC Curve
 
@@ -214,7 +213,7 @@ even manages to have a higher false negative rate, overlooking 5 more
 displaced persons compared to KNN. All other relevant metrics also
 underperformed compared to KNN.
 
-#### $\underline{QDA}$
+#### QDA
 
 ##### QDA ROC Curve
 
@@ -242,7 +241,7 @@ standard deviation. It also underperforms the KNN method in nearly every
 other metric, and in fact misclassifies nearly 3 times as many non-blue
 tarp images as blue tarp.
 
-#### $\underline{Logistic\space Regression}$
+#### Logistic Regression
 
 ##### Logistic Regression ROC Curve
 
@@ -270,7 +269,7 @@ as less) with less uncertainty, but it trails KNN and QDA in every
 metric, and in fact misclassifies nearly 4.5 times as many non-blue tarp
 images as blue tarp compared to KNN.
 
-#### $\underline{Random\space Forest}$
+#### Random Forest
 
 ![](/images/rfTuning.png)
 
@@ -320,7 +319,7 @@ models except for KNN (again, given their chosen thresholds), and in
 fact, the average AUC of its Precision Recall Curve is the highest seen
 thus far (something not dependent upon a threshold selection).
 
-#### $\underline{SVM}$
+#### SVM
 
 ![](/images/radialTuning.png)
 
@@ -389,29 +388,29 @@ overlooked.
 
 ### **Hold-Out Sample Performance**
 
-#### $\underline{Data\space Reading\space and\space Cleaning}$
+#### Data Reading and Cleaning
 
-#### $\underline{KNN}$
+#### KNN
 
 <img src="/images/figure-gfm/unnamed-chunk-31-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-31-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-31-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### $\underline{LDA}$
+#### LDA
 
 <img src="/images/figure-gfm/unnamed-chunk-32-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-32-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-32-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### $\underline{QDA}$
+#### QDA
 
 <img src="/images/figure-gfm/unnamed-chunk-33-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### $\underline{Logistic\space Regression}$
+#### Logistic\space Regression
 
 <img src="/images/figure-gfm/unnamed-chunk-34-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### $\underline{Random\space Forest}$
+#### Random\space Forest
 
 <img src="/images/figure-gfm/unnamed-chunk-35-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### $\underline{SVM}$
+#### SVM
 
 <img src="/images/figure-gfm/unnamed-chunk-36-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-36-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-36-3.png" width="60%" style="display: block; margin: auto;" />
 
