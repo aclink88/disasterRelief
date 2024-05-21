@@ -123,13 +123,11 @@ Alex Link
         id="toc-6-suggested-improvement-to-training-methoddata">6. Suggested
         Improvement to Training Method/Data</a>
 
-###### Function Coding
-
 ### **K-Folds Out of Sampling Performance**
 
-#### $\underline{Data\space Reading,\space Cleaning\space and\space Shuffling}$
+#### Data Reading, Cleaning and Shuffling
 
-#### $\underline{KNN}$
+#### KNN
 
 ![](/images/knnTuning.png)
 
