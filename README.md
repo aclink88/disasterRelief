@@ -402,11 +402,11 @@ overlooked.
 
 <img src="/images/figure-gfm/unnamed-chunk-33-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-33-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### Logistic\space Regression
+#### Logistic Regression
 
 <img src="/images/figure-gfm/unnamed-chunk-34-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-34-3.png" width="60%" style="display: block; margin: auto;" />
 
-#### Random\space Forest
+#### Random Forest
 
 <img src="/images/figure-gfm/unnamed-chunk-35-1.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-2.png" width="60%" style="display: block; margin: auto;" /><img src="/images/figure-gfm/unnamed-chunk-35-3.png" width="60%" style="display: block; margin: auto;" />
 
